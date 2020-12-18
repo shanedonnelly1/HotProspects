@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import CodeScanner
 
 struct ProspectsView: View {
     @EnvironmentObject var prospects: Prospects
+    @State private var isShowingScanner = false
     
     enum FilterType {
         case none, contacted, uncontacted
@@ -48,19 +50,43 @@ struct ProspectsView: View {
                         Text(prospect.emailAddress)
                             .foregroundColor(.secondary)
                     }
+                    .contextMenu(ContextMenu(menuItems: {
+                        Button(prospect.isContacted ? "Mark Uncontacted" : "Mark Contacted" ) {
+                            self.prospects.toggle(prospect)
+                        }
+                        
+                    }))
                 }
             }
-                .navigationBarTitle(title)
-                .navigationBarItems(trailing: Button(action: {
-                    let prospect = Prospect()
-                    prospect.name = "Paul Hudson"
-                    prospect.emailAddress = "paul@hackingwithswift.com"
-                    self.prospects.people.append(prospect)
-                }) {
-                    Image(systemName: "qrcode.viewfinder")
-                    Text("Scan")
-                })
+            .navigationBarTitle(title)
+            .navigationBarItems(trailing: Button(action: {
+                self.isShowingScanner = true
+            }) {
+                Image(systemName: "qrcode.viewfinder")
+                Text("Scan")
+            })
+            .sheet(isPresented: $isShowingScanner) {
+                CodeScannerView(codeTypes: [.qr], simulatedData: "Shane Donnelly\nshanedonnelly1@hotmail.com", completion: self.handleScan)
+            }
         }
+    }
+    
+    func handleScan(result: Result<String, CodeScannerView.ScanError>) {
+        self.isShowingScanner = false
+        switch result {
+        case .success(let code):
+            let details = code.components(separatedBy: "\n")
+            guard details.count == 2 else { return }
+            
+            let person = Prospect()
+            person.name = details[0]
+            person.emailAddress = details[1]
+            
+            self.prospects.people.append(person)
+        case .failure(let error):
+            print("Scanning failed")
+        }
+        
     }
 }
 
