@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CodeScanner
+import UserNotifications
 
 struct ProspectsView: View {
     @EnvironmentObject var prospects: Prospects
@@ -55,6 +56,11 @@ struct ProspectsView: View {
                             self.prospects.toggle(prospect)
                         }
                         
+                        if !prospect.isContacted {
+                            Button("Remind Me") {
+                                self.addNotification(for: prospect)
+                            }
+                        }
                     }))
                 }
             }
@@ -82,11 +88,44 @@ struct ProspectsView: View {
             person.name = details[0]
             person.emailAddress = details[1]
             
-            self.prospects.people.append(person)
+            self.prospects.add(person)
         case .failure(let error):
             print("Scanning failed")
         }
+    }
+    
+    func addNotification(for prospect: Prospect) {
+        let centre = UNUserNotificationCenter.current()
         
+        let addRequest = {
+            let content = UNMutableNotificationContent()
+            content.title = "Contact \(prospect.name)"
+            content.subtitle = prospect.emailAddress
+            content.sound = UNNotificationSound.default
+            
+//            var dateComponents = DateComponents()
+//            dateComponents.hour = 9
+//            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+            
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+            centre.add(request)
+        }
+        
+        centre.getNotificationSettings() { settings in
+            if settings.authorizationStatus == .authorized {
+                addRequest()
+            } else {
+                centre.requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
+                    if success {
+                        addRequest()
+                    } else {
+                        print("Doh")
+                    }
+                }
+            }
+        }
     }
 }
 
